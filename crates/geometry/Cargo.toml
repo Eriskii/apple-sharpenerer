@@ -1,0 +1,8 @@
+[package]
+name = "geometry"
+description = "Per-corner window radius rules and window outlines for apple-sharpenerer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false

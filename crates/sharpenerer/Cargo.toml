@@ -1,0 +1,11 @@
+[package]
+name = "sharpenerer"
+description = "Per-corner, screen-aware window rounding for macOS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }

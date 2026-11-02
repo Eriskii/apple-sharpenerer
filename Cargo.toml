@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = ["crates/geometry", "crates/payload", "crates/sharpenerer"]
+# The payload is no_std and has to be built with -Zbuild-std (see Makefile), so plain
+# `cargo build` / `cargo test` leave it out.
+default-members = ["crates/geometry", "crates/sharpenerer"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/Eriskii/apple-sharpenerer"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1

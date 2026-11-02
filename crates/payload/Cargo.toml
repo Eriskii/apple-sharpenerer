@@ -1,0 +1,19 @@
+[package]
+name = "payload"
+description = "The dylib apple-sharpenerer loads into apps"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "sharpenerer"
+crate-type = ["cdylib"]
+test = false
+
+[dependencies]
+geometry = { path = "../geometry" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(arm64e)"] }
