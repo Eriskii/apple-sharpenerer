@@ -66,6 +66,8 @@ const STATE_COUNT: u32 = (size_of::<ArmThreadState64>() / 4) as u32;
 const THREAD_CONVERT_THREAD_STATE_FROM_SELF: c_int = 2;
 /// `ptrauth_string_discriminator("pc")`
 const PC_DISCRIMINATOR: u64 = 0x7481;
+/// `ptrauth_string_discriminator("sp")`
+const SP_DISCRIMINATOR: u64 = 0xCBED;
 const DONE_MARKER: u64 = 0x6873_7072;
 
 struct Stderr;
@@ -97,8 +99,16 @@ fn sign_pc(pc: u64) -> u64 {
     v
 }
 
+/// Signs `sp` the way `__darwin_arm_thread_state64_set_sp` does: DA key, "sp" discriminator.
+/// Unsigned, the kernel's check fails and the thread starts on a poisoned stack pointer.
+fn sign_sp(sp: u64) -> u64 {
+    let mut v = sp;
+    unsafe { core::arch::asm!("pacda {0}, {1}", inout(reg) v, in(reg) SP_DISCRIMINATOR, options(pure, nomem, nostack)) };
+    v
+}
+
 fn run_thread(task: MachPort, pc: u64, sp: u64) -> Result<(), Failure> {
-    let state = ArmThreadState64 { pc: sign_pc(pc), sp, ..Default::default() };
+    let state = ArmThreadState64 { pc: sign_pc(pc), sp: sign_sp(sp), ..Default::default() };
     let mut converted = ArmThreadState64::default();
     let mut count = STATE_COUNT;
     // The kernel re-signs the state for the target, but needs a thread of the target to do it.
@@ -156,6 +166,9 @@ core::arch::global_asm!(
     ".p2align 2",
     ".globl _sharpenerer_thread_self_test",
     "_sharpenerer_thread_self_test:",
+    // Touch the stack: a badly signed stack pointer only shows up once it's used.
+    "  stp x29, x30, [sp, #-16]!",
+    "  ldp x29, x30, [sp], #16",
     "  movz x0, #0x7072",
     "  movk x0, #0x6873, lsl #16",
     "1: b 1b",
