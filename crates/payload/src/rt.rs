@@ -6,6 +6,7 @@ use core::ffi::{c_char, c_int, c_void};
 #[link(name = "System")]
 unsafe extern "C" {
     pub fn getpid() -> c_int;
+    pub fn usleep(micros: u32) -> c_int;
     fn abort() -> !;
     fn malloc(size: usize) -> *mut c_void;
     fn free(p: *mut c_void);

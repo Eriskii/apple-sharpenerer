@@ -28,6 +28,8 @@ unsafe extern "C" {
     fn mach_vm_allocate(task: MachPort, addr: *mut u64, size: u64, flags: c_int) -> KernReturn;
     fn mach_vm_write(task: MachPort, addr: u64, data: *const c_void, count: u32) -> KernReturn;
     fn mach_vm_protect(task: MachPort, addr: u64, size: u64, set_max: c_int, prot: c_int) -> KernReturn;
+    fn mach_vm_read_overwrite(task: MachPort, addr: u64, size: u64, data: u64, out_size: *mut u64) -> KernReturn;
+    fn task_info(task: MachPort, flavor: c_int, info: *mut i32, count: *mut u32) -> KernReturn;
     fn mach_error_string(kr: KernReturn) -> *const c_char;
     fn dlopen(path: *const c_char, mode: c_int) -> *mut c_void;
     fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
@@ -112,6 +114,37 @@ fn resolve(name: &str) -> Option<u64> {
     // Drop any pointer signature; the payload calls imports with plain branches.
     unsafe { std::arch::asm!("xpaci {0}", inout(reg) address, options(pure, nomem, nostack)) };
     Some(address)
+}
+
+#[repr(C, packed(4))]
+#[derive(Default)]
+struct TaskDyldInfo {
+    all_image_info_addr: u64,
+    all_image_info_size: u64,
+    all_image_info_format: i32,
+}
+
+const TASK_DYLD_INFO: c_int = 17;
+/// Offset of `libSystemInitialized` in `struct dyld_all_image_infos`.
+const LIBSYSTEM_INITIALIZED: usize = 25;
+
+/// Whether `pid` is far enough along to take the payload: libSystem (and with it pthreads and
+/// the Objective-C runtime) is initialised. The payload itself waits for AppKit.
+pub fn ready(pid: i32) -> Result<bool, Error> {
+    let task = Task::of(pid)?;
+    let mut info = TaskDyldInfo::default();
+    let mut count = (size_of::<TaskDyldInfo>() / 4) as u32;
+    check("task_info", unsafe { task_info(task.port, TASK_DYLD_INFO, (&raw mut info).cast(), &mut count) })?;
+    let address = info.all_image_info_addr;
+    if address == 0 {
+        return Ok(false);
+    }
+    let mut header = [0u8; 32];
+    let mut read = 0;
+    check("read dyld info", unsafe {
+        mach_vm_read_overwrite(task.port, address, header.len() as u64, header.as_mut_ptr() as u64, &mut read)
+    })?;
+    Ok(header[LIBSYSTEM_INITIALIZED] != 0)
 }
 
 /// Where the payload's code ended up and where its first thread should run.

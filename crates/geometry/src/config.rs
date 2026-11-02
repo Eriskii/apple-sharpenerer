@@ -39,7 +39,7 @@ const TAG: u64 = 0xA5;
 // 32-39 display radius, 40-46 flags, 56-63 tag. Radii are whole points, 0-255.
 impl Config {
     pub fn pack(&self) -> u64 {
-        let byte = |r: f64| (r.max(0.0).min(255.0) + 0.5) as u64;
+        let byte = |r: f64| (r.clamp(0.0, 255.0) + 0.5) as u64;
         let b = self.shape.base;
         let flags = [
             self.enabled,

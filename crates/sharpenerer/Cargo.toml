@@ -10,3 +10,6 @@ publish = false
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 geometry = { path = "../geometry" }
+libc = "0.2"
+plist = "1"
+toml_edit = "0.22"

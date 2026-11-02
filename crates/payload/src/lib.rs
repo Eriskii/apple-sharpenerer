@@ -44,7 +44,7 @@ core::arch::global_asm!(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn sharpenerer_main(_: *mut c_void) -> *mut c_void {
-    start();
+    start(10_000);
     core::ptr::null_mut()
 }
 
@@ -53,18 +53,24 @@ pub extern "C" fn sharpenerer_main(_: *mut c_void) -> *mut c_void {
 static INIT: extern "C" fn() = loaded_by_dyld;
 
 extern "C" fn loaded_by_dyld() {
-    start();
+    start(0);
 }
 
-fn start() {
+fn start(wait_for_appkit_ms: u32) {
     let pid = unsafe { rt::getpid() };
     if !objc::class(windows::OBSERVER_CLASS).is_null() {
         log!("already running in pid {pid}");
         return;
     }
-    if objc::class(c"NSCGSWindow").is_null() {
-        log!("no AppKit window internals in pid {pid}; nothing to do");
-        return;
+    // The daemon loads us as soon as an app starts, which can be before AppKit is up.
+    let mut waited = 0;
+    while objc::class(c"NSCGSWindow").is_null() {
+        if waited >= wait_for_appkit_ms {
+            log!("no AppKit window internals in pid {pid}; nothing to do");
+            return;
+        }
+        unsafe { rt::usleep(50_000) };
+        waited += 50;
     }
     config::listen();
     hooks::install();

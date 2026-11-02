@@ -19,6 +19,26 @@ struct CornerCurve {
     segments: &'static [[(f64, f64); 3]],
 }
 
+/// A corner of the outline: where it is, the directions the path travels into and out of it, and
+/// how much it's rounded.
+#[derive(Clone, Copy)]
+struct Corner {
+    point: (f64, f64),
+    arrive: (f64, f64),
+    leave: (f64, f64),
+    radius: f64,
+}
+
+impl Corner {
+    /// A point in this corner's local coordinates, scaled by its radius.
+    fn at(&self, (u, v): (f64, f64)) -> (f64, f64) {
+        (
+            self.point.0 + self.radius * (v * self.leave.0 - u * self.arrive.0),
+            self.point.1 + self.radius * (v * self.leave.1 - u * self.arrive.1),
+        )
+    }
+}
+
 /// Control point distance of a cubic approximating a unit quarter circle.
 const KAPPA: f64 = 0.552_284_749_8;
 
@@ -47,32 +67,25 @@ pub fn outline(rect: Rect, radii: Corners<f64>, curve: Curve, mut emit: impl FnM
     let limit = rect.width.min(rect.height).max(0.0) / 2.0 / shape.extent;
     let r = radii.map(|r| r.max(0.0).min(limit));
     let (x0, y0, x1, y1) = (rect.x, rect.y, rect.max_x(), rect.max_y());
-    // (corner, direction of travel arriving, direction of travel leaving, radius)
     let corners = [
-        ((x1, y0), (1.0, 0.0), (0.0, 1.0), r.bottom_right),
-        ((x1, y1), (0.0, 1.0), (-1.0, 0.0), r.top_right),
-        ((x0, y1), (-1.0, 0.0), (0.0, -1.0), r.top_left),
-        ((x0, y0), (0.0, -1.0), (1.0, 0.0), r.bottom_left),
+        Corner { point: (x1, y0), arrive: (1.0, 0.0), leave: (0.0, 1.0), radius: r.bottom_right },
+        Corner { point: (x1, y1), arrive: (0.0, 1.0), leave: (-1.0, 0.0), radius: r.top_right },
+        Corner { point: (x0, y1), arrive: (-1.0, 0.0), leave: (0.0, -1.0), radius: r.top_left },
+        Corner { point: (x0, y0), arrive: (0.0, -1.0), leave: (1.0, 0.0), radius: r.bottom_left },
     ];
-    let at = |(corner, arrive, leave, radius): ((f64, f64), (f64, f64), (f64, f64), f64), (u, v): (f64, f64)| {
-        (
-            corner.0 + radius * (v * leave.0 - u * arrive.0),
-            corner.1 + radius * (v * leave.1 - u * arrive.1),
-        )
-    };
 
     // Begin where the bottom-left corner's curve ends, so the loop closes on it.
-    let (x, y) = at(corners[3], (0.0, shape.extent));
+    let (x, y) = corners[3].at((0.0, shape.extent));
     emit(PathOp::MoveTo(x, y));
     for corner in corners {
-        if corner.3 == 0.0 {
-            emit(PathOp::LineTo(corner.0.0, corner.0.1));
+        if corner.radius == 0.0 {
+            emit(PathOp::LineTo(corner.point.0, corner.point.1));
             continue;
         }
-        let (x, y) = at(corner, (shape.extent, 0.0));
+        let (x, y) = corner.at((shape.extent, 0.0));
         emit(PathOp::LineTo(x, y));
         for &[c1, c2, to] in shape.segments {
-            emit(PathOp::CurveTo { c1: at(corner, c1), c2: at(corner, c2), to: at(corner, to) });
+            emit(PathOp::CurveTo { c1: corner.at(c1), c2: corner.at(c2), to: corner.at(to) });
         }
     }
     emit(PathOp::Close);
