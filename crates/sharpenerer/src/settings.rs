@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use geometry::{Anchor, Config, Corners, Curve};
+use geometry::{Anchor, Config, Corners, Curve, ScreenAware};
 use toml_edit::{Array, DocumentMut, Item, Value, value};
 
 pub const DEFAULT: &str = r#"# apple-sharpenerer settings. `sharpenerer set <key> <value>` changes them and applies them live;
@@ -21,13 +21,14 @@ bottom_right = 0
 curve = "continuous"
 
 [screen_aware]
-# Round a window corner when it sits near a rounded corner of the display, following its curve.
+# Give window corners near a rounded corner of the display their own rounding.
 enabled = true
+# "real" follows the display's own corner curve; a number (points) gives every window corner
+# within reach of a rounded display corner exactly that radius.
+radius = "real"
 # "usable" measures from the usable area (below the menu bar, beside the Dock),
 # "display" from the physical panel edges.
 anchor = "usable"
-# "auto" reads the display's own rounding; a number (points) overrides it.
-display_radius = "auto"
 
 [sheen]
 # true keeps it, false removes it.
@@ -46,7 +47,7 @@ enum Kind {
     Radius,
     Curve,
     Anchor,
-    DisplayRadius,
+    AwareRadius,
 }
 
 const KEYS: &[(&str, Kind)] = &[
@@ -58,7 +59,7 @@ const KEYS: &[(&str, Kind)] = &[
     ("corners.curve", Kind::Curve),
     ("screen_aware.enabled", Kind::Bool),
     ("screen_aware.anchor", Kind::Anchor),
-    ("screen_aware.display_radius", Kind::DisplayRadius),
+    ("screen_aware.radius", Kind::AwareRadius),
     ("sheen.top_highlight", Kind::Bool),
     ("sheen.inner_rim", Kind::Bool),
     ("sheen.outer_rim", Kind::Bool),
@@ -142,6 +143,9 @@ impl Settings {
             Some("display") => Anchor::Display,
             _ => Anchor::Usable,
         };
+        // Older files called this display_radius, with "auto" for the real curve.
+        let radius = self.item("screen_aware.radius").or_else(|| self.item("screen_aware.display_radius"));
+        let radius = radius.and_then(Item::as_integer).map(|r| r.clamp(0, 255) as f64);
         Config {
             enabled: self.bool("enabled", defaults.enabled),
             shape: geometry::Settings {
@@ -152,9 +156,8 @@ impl Settings {
                     bottom_right: self.radius("corners.bottom_right"),
                 },
                 curve,
-                screen_aware: self.bool("screen_aware.enabled", true).then_some(anchor),
+                screen_aware: self.bool("screen_aware.enabled", true).then_some(ScreenAware { anchor, radius }),
             },
-            display_radius: self.radius("screen_aware.display_radius"),
             top_highlight: self.bool("sheen.top_highlight", defaults.top_highlight),
             inner_rim: self.bool("sheen.inner_rim", defaults.inner_rim),
             outer_rim: self.bool("sheen.outer_rim", defaults.outer_rim),
@@ -178,9 +181,24 @@ impl Settings {
     }
 
     /// Sets `key` (dots or dashes, e.g. `sheen.top-highlight`). `corners` takes one radius for
-    /// all four or four radii (top-left, top-right, bottom-left, bottom-right).
+    /// all four or four radii (top-left, top-right, bottom-left, bottom-right); `screen-aware`
+    /// takes on, off, real or a radius.
     pub fn set(&mut self, key: &str, values: &[String]) -> Result<(), String> {
         let key = key.replace('-', "_");
+        if key == "screen_aware" {
+            let [v] = values else {
+                return Err("screen-aware takes on, off, real or a radius".into());
+            };
+            let on = match parse_bool(v) {
+                Ok(on) => on,
+                Err(_) => {
+                    self.set("screen_aware.radius", values)?;
+                    true
+                }
+            };
+            *self.item_mut("screen_aware.enabled") = value(on);
+            return Ok(());
+        }
         if key == "corners" {
             let radii = match values {
                 [one] => vec![parse_radius(one)?; 4],
@@ -192,11 +210,7 @@ impl Settings {
             }
             return Ok(());
         }
-        // A section name means its on/off switch: `screen-aware off`.
-        let switch = format!("{key}.enabled");
-        let Some(&(full, kind)) =
-            KEYS.iter().find(|(k, _)| *k == key || *k == switch || k.rsplit('.').next() == Some(key.as_str()))
-        else {
+        let Some(&(full, kind)) = KEYS.iter().find(|(k, _)| *k == key || k.rsplit('.').next() == Some(key.as_str())) else {
             return Err(format!("unknown setting {key}; try one of: {}", key_names().collect::<Vec<_>>().join(", ")));
         };
         let [v] = values else {
@@ -207,12 +221,17 @@ impl Settings {
             Kind::Radius => parse_radius(v)?.into(),
             Kind::Curve if v == "continuous" || v == "circular" => v.as_str().into(),
             Kind::Anchor if v == "usable" || v == "display" => v.as_str().into(),
-            Kind::DisplayRadius if v == "auto" => "auto".into(),
-            Kind::DisplayRadius => parse_radius(v)?.into(),
+            Kind::AwareRadius if v == "real" => "real".into(),
+            Kind::AwareRadius => parse_radius(v).map_err(|_| format!("expected real or a radius from 0 to 255, got {v}"))?.into(),
             Kind::Curve => return Err("curve is continuous or circular".into()),
             Kind::Anchor => return Err("anchor is usable or display".into()),
         };
         *self.item_mut(full) = value(new);
+        if full == "screen_aware.radius"
+            && let Some(table) = self.doc.get_mut("screen_aware").and_then(Item::as_table_mut)
+        {
+            table.remove("display_radius");
+        }
         Ok(())
     }
 }
@@ -238,15 +257,15 @@ mod tests {
         s.set("top-highlight", &["on".into()]).unwrap();
         s.set("corners", &["12".into(), "0".into(), "0".into(), "4".into()]).unwrap();
         s.set("screen_aware.anchor", &["display".into()]).unwrap();
-        s.set("display-radius", &["30".into()]).unwrap();
         s.set("screen-aware", &["off".into()]).unwrap();
         assert_eq!(s.config().shape.screen_aware, None);
-        s.set("screen-aware", &["on".into()]).unwrap();
+        s.set("screen-aware", &["8".into()]).unwrap();
         let c = s.config();
         assert!(c.top_highlight);
         assert_eq!(c.shape.base, Corners { top_left: 12.0, top_right: 0.0, bottom_left: 0.0, bottom_right: 4.0 });
-        assert_eq!(c.shape.screen_aware, Some(Anchor::Display));
-        assert_eq!(c.display_radius, 30.0);
+        assert_eq!(c.shape.screen_aware, Some(ScreenAware { anchor: Anchor::Display, radius: Some(8.0) }));
+        s.set("screen-aware", &["real".into()]).unwrap();
+        assert_eq!(s.config().shape.screen_aware, Some(ScreenAware { anchor: Anchor::Display, radius: None }));
         assert!(s.to_string().contains("# true keeps it, false removes it."));
     }
 
@@ -256,6 +275,16 @@ mod tests {
         assert!(s.set("corners", &["300".into()]).is_err());
         assert!(s.set("curve", &["wobbly".into()]).is_err());
         assert!(s.set("nonsense", &["1".into()]).is_err());
+        assert!(s.set("screen-aware", &["sometimes".into()]).is_err());
+    }
+
+    #[test]
+    fn reads_the_old_display_radius_key() {
+        let mut s = Settings { doc: "[screen_aware]\nenabled = true\ndisplay_radius = \"auto\"\n".parse().unwrap() };
+        assert_eq!(s.config().shape.screen_aware.unwrap().radius, None);
+        s.set("radius", &["6".into()]).unwrap();
+        assert_eq!(s.config().shape.screen_aware.unwrap().radius, Some(6.0));
+        assert!(!s.to_string().contains("display_radius"));
     }
 
     #[test]

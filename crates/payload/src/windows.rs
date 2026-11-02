@@ -42,12 +42,11 @@ pub fn radii(w: Id) -> Corners<f64> {
         return geometry::window_radii(frame, &Screen { frame, visible_frame: frame, corner_extents: Corners::all(0.0) }, &config.shape);
     }
     let screen_frame = msg!(CGRect; screen, c"frame");
-    let mut corner_extents = display_corners(screen, screen_frame);
-    if config.display_radius > 0.0 {
-        let extent = config.display_radius * config.shape.curve.extent_factor();
-        corner_extents = corner_extents.map(|e| if e > 0.0 { extent } else { 0.0 });
-    }
-    let screen = Screen { frame: screen_frame.into(), visible_frame: msg!(CGRect; screen, c"visibleFrame").into(), corner_extents };
+    let screen = Screen {
+        frame: screen_frame.into(),
+        visible_frame: msg!(CGRect; screen, c"visibleFrame").into(),
+        corner_extents: display_corners(screen, screen_frame),
+    };
     geometry::window_radii(frame, &screen, &config.shape)
 }
 

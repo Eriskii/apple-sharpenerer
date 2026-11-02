@@ -40,9 +40,10 @@ Changes apply live to every app, no sudo needed:
 ```sh
 sharpenerer set corners 0               # all four corners square away from display corners
 sharpenerer set corners 10 10 0 0       # top-left, top-right, bottom-left, bottom-right
+sharpenerer set screen-aware real       # corners near rounded display corners follow their curve
+sharpenerer set screen-aware 8          # ...or just get 8pt there (any radius)
 sharpenerer set screen-aware off        # just use the radii above
 sharpenerer set anchor display          # measure from the panel edges instead of the usable area
-sharpenerer set display-radius 30       # override the measured display corner rounding
 sharpenerer set curve circular          # instead of Apple's continuous curve
 sharpenerer set top-highlight on        # keep the bright top edge
 sharpenerer set inner-rim on            # keep the white inner line
@@ -52,10 +53,12 @@ sharpenerer exclude com.apple.Terminal  # leave an app alone from its next launc
 sharpenerer status
 ```
 
-With screen-aware rounding on, a window corner rounds only near a rounded corner of the display
-and follows its curve concentrically: flush against it, the window gets the display's rounding;
-every point further away takes a point off. On a MacBook the top corners of the panel are rounded
-and the bottom ones aren't, so bottom corners stay square. The daemon log is
+Screen-aware rounding only touches window corners within reach of a display corner that's actually
+rounded (as far as its rounding extends, about 44pt on a MacBook). With `real`, such a corner
+follows the display's curve concentrically: flush against it, the window gets the display's
+rounding, and every point further away takes a point off, never going below the corner's base
+radius. With a number, such corners simply get that radius. On a MacBook only the top corners of
+the panel are rounded, so bottom window corners always keep their base radius. The daemon log is
 `/Library/Logs/sharpenerer.log`; the payload logs to the unified log (`log stream --predicate
 'eventMessage BEGINSWITH "[sharpenerer]"'`).
 

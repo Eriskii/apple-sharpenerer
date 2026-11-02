@@ -33,8 +33,8 @@ enum Command {
     Show,
     /// Change a setting and apply it live, e.g. `set corners 0` or `set top-highlight on`.
     Set {
-        /// enabled, corners, top-left, top-right, bottom-left, bottom-right, curve, screen-aware,
-        /// anchor, display-radius, top-highlight, inner-rim, outer-rim
+        /// enabled, corners, top-left, top-right, bottom-left, bottom-right, curve,
+        /// screen-aware (on, off, real or a radius), anchor, top-highlight, inner-rim, outer-rim
         key: String,
         #[arg(required = true, num_args = 1..)]
         values: Vec<String>,
@@ -77,10 +77,12 @@ fn describe(c: &Config) -> String {
     };
     let aware = match c.shape.screen_aware {
         None => "off".to_string(),
-        Some(anchor) => {
-            let anchor = if anchor == Anchor::Usable { "usable area" } else { "display edges" };
-            let radius = if c.display_radius > 0.0 { format!("{}pt", c.display_radius) } else { "auto".into() };
-            format!("on, from the {anchor}, display corners {radius}")
+        Some(aware) => {
+            let from = if aware.anchor == Anchor::Usable { "usable area" } else { "display edges" };
+            match aware.radius {
+                None => format!("real display curve, measured from the {from}"),
+                Some(r) => format!("{r} near rounded display corners, measured from the {from}"),
+            }
         }
     };
     format!(

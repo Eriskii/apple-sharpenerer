@@ -104,30 +104,44 @@ pub struct Screen {
     pub corner_extents: Corners<f64>,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ScreenAware {
+    pub anchor: Anchor,
+    /// `None` follows the display's real corner curve; `Some(r)` gives every window corner within
+    /// reach of a rounded display corner exactly `r`.
+    pub radius: Option<f64>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
     /// Radius of each corner when it isn't near a rounded screen corner.
     pub base: Corners<f64>,
     pub curve: Curve,
     /// `None` turns screen-aware rounding off.
-    pub screen_aware: Option<Anchor>,
+    pub screen_aware: Option<ScreenAware>,
 }
 
 /// The radius for each corner of `window` on `screen`.
 ///
-/// With screen-aware rounding, a corner follows the matching screen corner concentrically: flush
-/// against it the window gets the screen's rounding, and every point of distance takes a point off,
-/// until the corner falls back to its base radius. Square screen corners never round a window.
+/// Screen-aware rounding only applies near display corners that are actually rounded, and only
+/// within their reach (as far as their rounding extends). Following the real curve, a corner
+/// flush against the display corner gets its rounding and every point of distance takes a point
+/// off, never going below the base radius. With a custom radius, corners within reach simply get
+/// that radius. Corners out of reach always get the base radius.
 pub fn window_radii(window: Rect, screen: &Screen, settings: &Settings) -> Corners<f64> {
     let factor = settings.curve.extent_factor();
     let mut extents = settings.base.map(|r| r.max(0.0) * factor);
-    if let Some(anchor) = settings.screen_aware {
-        let anchor = match anchor {
+    if let Some(aware) = settings.screen_aware {
+        let anchor = match aware.anchor {
             Anchor::Usable => screen.visible_frame,
             Anchor::Display => screen.frame,
         };
-        let follow = screen.corner_extents.zip(corner_gaps(window, anchor), |e, gap| e - gap);
-        extents = extents.zip(follow, f64::max);
+        let reach = screen.corner_extents.zip(corner_gaps(window, anchor), |extent, gap| (extent, gap));
+        extents = extents.zip(reach, |base, (extent, gap)| match aware.radius {
+            None => base.max(extent - gap),
+            Some(r) if extent > 0.0 && gap < extent => r.max(0.0) * factor,
+            Some(_) => base,
+        });
     }
     let limit = window.width.min(window.height).max(0.0) / 2.0;
     extents.map(|e| e.max(0.0).min(limit) / factor)
@@ -203,7 +217,19 @@ mod tests {
     }
 
     fn settings(anchor: Option<Anchor>) -> Settings {
-        Settings { base: Corners::all(0.0), curve: Curve::Circular, screen_aware: anchor }
+        Settings {
+            base: Corners::all(0.0),
+            curve: Curve::Circular,
+            screen_aware: anchor.map(|anchor| ScreenAware { anchor, radius: None }),
+        }
+    }
+
+    fn custom(base: f64, radius: f64) -> Settings {
+        Settings {
+            base: Corners::all(base),
+            curve: Curve::Circular,
+            screen_aware: Some(ScreenAware { anchor: Anchor::Usable, radius: Some(radius) }),
+        }
     }
 
     fn close(a: f64, b: f64) -> bool {
@@ -255,6 +281,24 @@ mod tests {
         s.curve = Curve::Continuous;
         let r = window_radii(Rect::new(0.0, 0.0, 900.0, 1131.0), &macbook(), &s);
         assert!(close(r.top_left * CONTINUOUS_EXTENT, 44.0));
+    }
+
+    #[test]
+    fn custom_radius_applies_within_reach_of_rounded_display_corners() {
+        // Tiled with 8pt padding: the top-right corner is 8pt from the display's rounded corner.
+        let tiled = window_radii(Rect::new(900.0, 8.0, 892.0, 1115.0), &macbook(), &custom(4.0, 8.0));
+        assert_eq!(tiled, Corners { top_left: 4.0, top_right: 8.0, bottom_left: 4.0, bottom_right: 4.0 });
+        let floating = window_radii(Rect::new(500.0, 300.0, 400.0, 300.0), &macbook(), &custom(4.0, 8.0));
+        assert_eq!(floating, Corners::all(4.0));
+        // The panel's bottom corners are square, so they never count.
+        let bottom = window_radii(Rect::new(0.0, 0.0, 400.0, 300.0), &macbook(), &custom(4.0, 8.0));
+        assert_eq!(bottom, Corners::all(4.0));
+    }
+
+    #[test]
+    fn custom_radius_can_be_smaller_than_the_base() {
+        let r = window_radii(Rect::new(0.0, 0.0, 900.0, 1131.0), &macbook(), &custom(10.0, 0.0));
+        assert_eq!(r, Corners { top_left: 0.0, top_right: 10.0, bottom_left: 10.0, bottom_right: 10.0 });
     }
 
     #[test]
