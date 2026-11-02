@@ -6,8 +6,10 @@
 //! starts further from the corner than a circular arc of the same radius.
 #![cfg_attr(not(test), no_std)]
 
+mod config;
 mod outline;
 
+pub use config::Config;
 pub use outline::{PathOp, outline};
 
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -1,3 +1,0 @@
-# rustc reports the same cfg for arm64 and arm64e, so tell the payload which slice it is.
-[target.arm64e-apple-darwin]
-rustflags = ["--cfg", "arm64e"]

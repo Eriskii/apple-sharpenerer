@@ -150,6 +150,7 @@ name = "sharpenerer"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "geometry",
 ]
 
 [[package]]
@@ -168,6 +169,10 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
+
+[[package]]
+name = "thread"
+version = "0.1.0"
 
 [[package]]
 name = "unicode-ident"

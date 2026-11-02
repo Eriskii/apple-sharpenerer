@@ -1,0 +1,13 @@
+[package]
+name = "thread"
+description = "Starts the payload's thread inside an app (arm64e helper for the injector)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "sharpenerer-thread"
+path = "src/main.rs"
+test = false

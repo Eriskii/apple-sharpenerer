@@ -9,3 +9,4 @@ publish = false
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
+geometry = { path = "../geometry" }
