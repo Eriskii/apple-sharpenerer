@@ -65,7 +65,7 @@ const KEYS: &[(&str, Kind)] = &[
 ];
 
 pub fn key_names() -> impl Iterator<Item = &'static str> {
-    KEYS.iter().map(|(k, _)| *k).chain(["corners"])
+    KEYS.iter().map(|(k, _)| *k).chain(["corners", "screen_aware"])
 }
 
 pub struct Settings {
@@ -192,7 +192,11 @@ impl Settings {
             }
             return Ok(());
         }
-        let Some(&(full, kind)) = KEYS.iter().find(|(k, _)| *k == key || k.rsplit('.').next() == Some(key.as_str())) else {
+        // A section name means its on/off switch: `screen-aware off`.
+        let switch = format!("{key}.enabled");
+        let Some(&(full, kind)) =
+            KEYS.iter().find(|(k, _)| *k == key || *k == switch || k.rsplit('.').next() == Some(key.as_str()))
+        else {
             return Err(format!("unknown setting {key}; try one of: {}", key_names().collect::<Vec<_>>().join(", ")));
         };
         let [v] = values else {
@@ -235,6 +239,9 @@ mod tests {
         s.set("corners", &["12".into(), "0".into(), "0".into(), "4".into()]).unwrap();
         s.set("screen_aware.anchor", &["display".into()]).unwrap();
         s.set("display-radius", &["30".into()]).unwrap();
+        s.set("screen-aware", &["off".into()]).unwrap();
+        assert_eq!(s.config().shape.screen_aware, None);
+        s.set("screen-aware", &["on".into()]).unwrap();
         let c = s.config();
         assert!(c.top_highlight);
         assert_eq!(c.shape.base, Corners { top_left: 12.0, top_right: 0.0, bottom_left: 0.0, bottom_right: 4.0 });
