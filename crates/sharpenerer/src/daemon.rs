@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use eris_inject::daemon::Client;
 use eris_inject::notify::Channel;
-use eris_inject::{inject, log};
+use eris_inject::{inject, log, procs};
 
 use crate::{install, notify, settings};
 
@@ -36,8 +36,8 @@ impl Client for Sharpenerer {
         }
     }
 
-    fn wants(&mut self, bundle_id: &str, _home: &Path) -> bool {
-        !self.settings().excluded().iter().any(|id| id == bundle_id)
+    fn wants(&mut self, app: &procs::App, _home: &Path) -> bool {
+        eris_inject::daemon::regular(app) && !self.settings().excluded().iter().any(|id| *id == app.id)
     }
 
     fn load(&mut self, pid: i32, _bundle_id: &str) -> Result<(), inject::Error> {
