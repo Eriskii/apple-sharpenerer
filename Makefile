@@ -1,7 +1,7 @@
 CARGO   ?= cargo
 OUT     := target/dist
 NIGHTLY := -Zbuild-std=core,alloc
-# ErisMacInjectLib as cargo checked it out (the git dependency in crates/*/Cargo.toml).
+# ErisMacInjectLib as cargo resolves it: the monorepo's libs/ checkout, or the git dependency.
 INJECT   = $(shell $(CARGO) metadata --format-version 1 | perl -ne 'print $$1 and exit if m{"manifest_path":"([^"]*)/crates/inject/Cargo.toml"}')
 
 # macOS 26 only; also makes the linker emit chained fixups, which is what the injector reads.
