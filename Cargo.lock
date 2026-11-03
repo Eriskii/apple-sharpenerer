@@ -119,6 +119,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 [[package]]
 name = "eris-inject"
 version = "0.1.0"
+source = "git+https://github.com/Eriskii/ErisMacInjectLib?rev=8c6467611071cfc19a804a6031149f998bce1196#8c6467611071cfc19a804a6031149f998bce1196"
 dependencies = [
  "libc",
  "plist",
@@ -127,6 +128,7 @@ dependencies = [
 [[package]]
 name = "eris-inject-payload"
 version = "0.1.0"
+source = "git+https://github.com/Eriskii/ErisMacInjectLib?rev=8c6467611071cfc19a804a6031149f998bce1196#8c6467611071cfc19a804a6031149f998bce1196"
 
 [[package]]
 name = "geometry"

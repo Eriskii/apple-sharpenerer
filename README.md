@@ -70,7 +70,7 @@ radii consistent with it, hides the top highlight layer and zeroes the shadow ri
 corner shape comes from `NSScreen.bezelPath`. Settings arrive packed into 64 bits, as the state of
 a Darwin notification, so even sandboxed apps get live updates without reading any file.
 
-Loading is [ErisMacInjectLib](../ErisMonorepo/libs/ErisMacInjectLib)'s job, shared with
+Loading is [ErisMacInjectLib](https://github.com/Eriskii/ErisMacInjectLib)'s job, shared with
 ErisMenus. The daemon doesn't use `dlopen`, so library validation never sees the payload: it maps
 the payload's segments into the app itself and resolves its imports against the shared cache,
 then a tiny arm64e helper (`eris-inject-thread`) starts its thread with properly signed
@@ -82,8 +82,8 @@ captures them.
 
 ## Building
 
-Needs the Xcode command line tools, rustup (the pinned nightly toolchain installs itself), and
-ErisMacInjectLib checked out at `../ErisMonorepo/libs/ErisMacInjectLib`.
+Needs the Xcode command line tools and rustup (the pinned nightly toolchain installs itself). Cargo
+fetches ErisMacInjectLib from GitHub.
 
 ```sh
 make            # target/dist/{sharpenerer,eris-inject-thread,libsharpenerer.dylib}

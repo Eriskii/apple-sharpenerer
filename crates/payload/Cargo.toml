@@ -14,4 +14,4 @@ test = false
 
 [dependencies]
 geometry = { path = "../geometry" }
-eris-inject-payload = { path = "../../../ErisMonorepo/libs/ErisMacInjectLib/crates/payload" }
+eris-inject-payload = { git = "https://github.com/Eriskii/ErisMacInjectLib", rev = "8c6467611071cfc19a804a6031149f998bce1196" }

@@ -1,7 +1,8 @@
 CARGO   ?= cargo
 OUT     := target/dist
 NIGHTLY := -Zbuild-std=core,alloc
-INJECT  := ../ErisMonorepo/libs/ErisMacInjectLib
+# ErisMacInjectLib as cargo checked it out (the git dependency in crates/*/Cargo.toml).
+INJECT   = $(shell $(CARGO) metadata --format-version 1 | perl -ne 'print $$1 and exit if m{"manifest_path":"([^"]*)/crates/inject/Cargo.toml"}')
 
 # macOS 26 only; also makes the linker emit chained fixups, which is what the injector reads.
 export MACOSX_DEPLOYMENT_TARGET := 26.0
