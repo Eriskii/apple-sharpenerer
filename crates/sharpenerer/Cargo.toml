@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-eris-inject = { git = "https://github.com/Eriskii/ErisMacInjectLib", tag = "v0.1.0" }
+eris-inject = { git = "https://github.com/Eriskii/ErisMacInjectLib", tag = "v0.1.1" }
 geometry = { path = "../geometry" }
 libc = "0.2"
 toml_edit = "0.22"
