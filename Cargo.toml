@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/geometry", "crates/payload", "crates/sharpenerer", "crates/thread"]
-# The payload and the thread helper are no_std and built with -Zbuild-std (see Makefile), so plain
-# `cargo build` / `cargo test` leave it out.
+members = ["crates/geometry", "crates/payload", "crates/sharpenerer"]
+# The payload is no_std and built with -Zbuild-std (see Makefile), so plain `cargo build` /
+# `cargo test` leave it out.
 default-members = ["crates/geometry", "crates/sharpenerer"]
 
 [workspace.package]

@@ -117,6 +117,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
+name = "eris-inject"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "plist",
+]
+
+[[package]]
+name = "eris-inject-payload"
+version = "0.1.0"
+
+[[package]]
 name = "geometry"
 version = "0.1.0"
 
@@ -176,6 +188,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 name = "payload"
 version = "0.1.0"
 dependencies = [
+ "eris-inject-payload",
  "geometry",
 ]
 
@@ -259,9 +272,9 @@ name = "sharpenerer"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "eris-inject",
  "geometry",
  "libc",
- "plist",
  "toml_edit",
 ]
 
@@ -281,10 +294,6 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
-
-[[package]]
-name = "thread"
-version = "0.1.0"
 
 [[package]]
 name = "time"

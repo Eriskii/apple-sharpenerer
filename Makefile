@@ -1,6 +1,7 @@
 CARGO   ?= cargo
 OUT     := target/dist
 NIGHTLY := -Zbuild-std=core,alloc
+INJECT  := ../ErisMonorepo/libs/ErisMacInjectLib
 
 # macOS 26 only; also makes the linker emit chained fixups, which is what the injector reads.
 export MACOSX_DEPLOYMENT_TARGET := 26.0
@@ -15,11 +16,12 @@ payload:
 	mkdir -p $(OUT)
 	cp target/aarch64-apple-darwin/release/libsharpenerer.dylib $(OUT)/
 
-# Must be arm64e: it signs the payload thread's start address for arm64e apps.
+# eris-inject's thread helper. Must be arm64e: it signs the payload thread's start for arm64e apps.
 thread:
-	$(CARGO) build --release -p thread $(NIGHTLY) --target arm64e-apple-darwin
+	$(CARGO) build --release -p eris-inject-thread $(NIGHTLY) --target arm64e-apple-darwin \
+		--manifest-path $(INJECT)/Cargo.toml --target-dir target
 	mkdir -p $(OUT)
-	cp target/arm64e-apple-darwin/release/sharpenerer-thread $(OUT)/
+	cp target/arm64e-apple-darwin/release/eris-inject-thread $(OUT)/
 
 cli:
 	$(CARGO) build --release -p sharpenerer

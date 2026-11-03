@@ -1,15 +1,13 @@
 mod daemon;
-mod inject;
 mod install;
-mod macho;
 mod notify;
-mod procs;
 mod settings;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use eris_inject::procs;
 use geometry::{Anchor, Config, Curve};
 
 use settings::Settings;
@@ -102,19 +100,19 @@ fn describe(c: &Config) -> String {
 fn apply(settings: &Settings) -> Result<(), String> {
     let path = settings_path()?;
     settings.save(&path)?;
-    notify::Channel::open()?.publish(settings.config().pack())?;
+    notify::channel()?.publish(settings.config().pack())?;
     println!("{}", describe(&settings.config()));
     Ok(())
 }
 
 fn status() -> Result<(), String> {
-    match (install::installed(), install::daemon_pid()) {
+    match (install::SERVICE.installed(), install::SERVICE.pid()) {
         (_, Some(pid)) => println!("daemon:         running (pid {pid})"),
-        (true, None) => println!("daemon:         installed but not running; see {}", install::LOG),
+        (true, None) => println!("daemon:         installed but not running; see {}", install::SERVICE.log),
         (false, None) => println!("daemon:         not installed (sudo sharpenerer install)"),
     }
     println!("settings file:  {}", settings_path()?.display());
-    let live = notify::Channel::open()?.current().and_then(Config::unpack);
+    let live = notify::channel()?.current().and_then(Config::unpack);
     match live {
         Some(config) => println!("{}", describe(&config)),
         None => println!("live config:    none published yet"),
@@ -131,7 +129,7 @@ fn run(command: Command) -> Result<(), String> {
             Ok(())
         }
         Command::Uninstall => {
-            install::uninstall()?;
+            install::SERVICE.uninstall()?;
             println!("uninstalled; apps go back to normal as they're relaunched");
             Ok(())
         }
@@ -162,14 +160,16 @@ fn run(command: Command) -> Result<(), String> {
             Ok(())
         }
         Command::Inject { pid, payload } => {
-            let packed = notify::Channel::open()?
+            let packed = notify::channel()?
                 .current()
                 .unwrap_or_else(|| Settings::load(&settings_path().unwrap_or_default()).map(|s| s.config()).unwrap_or_default().pack());
-            inject::inject(pid, &payload.unwrap_or_else(install::payload), packed).map_err(|e| format!("loading into {pid} failed: {e}"))
+            install::load_into(pid, &payload.unwrap_or_else(install::installed_payload), packed)
+                .map_err(|e| format!("loading into {pid} failed: {e}"))
         }
-        Command::Daemon => daemon::run(std::path::Path::new(install::DIR)),
+        Command::Daemon => daemon::run(std::path::Path::new(install::SERVICE.dir)),
         Command::SelfTest { payload } => {
-            inject::self_test(&payload, Config::default().pack()).map_err(|e| format!("self-test failed: {e}"))
+            install::load_into(std::process::id() as i32, &payload, Config::default().pack())
+                .map_err(|e| format!("self-test failed: {e}"))
         }
     }
 }

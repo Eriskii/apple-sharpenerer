@@ -70,20 +70,23 @@ radii consistent with it, hides the top highlight layer and zeroes the shadow ri
 corner shape comes from `NSScreen.bezelPath`. Settings arrive packed into 64 bits, as the state of
 a Darwin notification, so even sandboxed apps get live updates without reading any file.
 
-The daemon doesn't use `dlopen`, so library validation never sees the payload: it maps the
-payload's segments into the app itself and resolves its imports against the shared cache, then a
-tiny arm64e helper (`sharpenerer-thread`) starts its thread with properly signed registers. The
-payload is `no_std` Rust; `crates/payload/src/lib.rs` explains why std can't run in arm64e apps.
+Loading is [ErisMacInjectLib](../ErisMonorepo/libs/ErisMacInjectLib)'s job, shared with
+ErisMenus. The daemon doesn't use `dlopen`, so library validation never sees the payload: it maps
+the payload's segments into the app itself and resolves its imports against the shared cache,
+then a tiny arm64e helper (`eris-inject-thread`) starts its thread with properly signed
+registers. The payload is `no_std` Rust on the library's payload runtime, which explains why std
+can't run in arm64e apps.
 
 `make devhost` builds a test app that loads the payload, opens windows at known spots and
 captures them.
 
 ## Building
 
-Needs the Xcode command line tools and rustup; the pinned nightly toolchain installs itself.
+Needs the Xcode command line tools, rustup (the pinned nightly toolchain installs itself), and
+ErisMacInjectLib checked out at `../ErisMonorepo/libs/ErisMacInjectLib`.
 
 ```sh
-make            # target/dist/{sharpenerer,sharpenerer-thread,libsharpenerer.dylib}
+make            # target/dist/{sharpenerer,eris-inject-thread,libsharpenerer.dylib}
 make test
 ```
 
